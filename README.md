@@ -2,14 +2,39 @@
 
 [Quickstart](#quickstart) | [Install](#install) | [Tutorial](#tutorial) | [Chinese](./README.cn.md)
 
-
 Jittor is a high-performance deep learning framework based on JIT compiling and meta-operators. The whole framework and meta-operators are compiled just-in-time. A powerful op compiler and tuner are integrated into Jittor. It allowed us to generate high-performance code with specialized for your model.
-
 
 The front-end language is Python. Module Design is used in the front-end, which is the most popular design for deeplearning framework interface. The back-end is implemented by high performance language, such as CUDA,C++.
 
-
 The following example shows how to model a two-layer neural network step by step and train from scratch In a few lines of Python code.
+
+# 框架
+
+入口：
+
+jittor/python/jittor/__init__.py  先创建（os.mknod 方法） 编译缓冲区cache_path 然后 上锁（fcntl 模块）
+
+在 linux 环境下用 Python 进行项目开发过程中经常会遇到多个进程对同一个文件进行读写问题，而此时就要对文件进行加锁控制，在 Python 的 linux 版本下有个 fcntl 模块可以方便的对文件进行加、解锁控制。
+
+os.mknod() 方法用于创建一个指定文件名的文件系统节点（文件，设备特别文件或者命名pipe）。
+
+```py
+# 上锁
+fcntl.flock(self.handle, fcntl.LOCK_EX) # 排他锁： 除加锁进程外其他进程没有对已加锁文件读写访问权限
+# 解锁
+fcntl.flock(self.handle, fcntl.LOCK_UN) # 解锁： 对加锁文件进行解锁
+# fcntl.LOCK_SH 共享锁： 所有进程都没有写权限，即使加锁进程也没有，但所有进程都有读权限
+# fcntl.LOCK_NB 非阻塞锁： 如果指定此参数，函数不能获得文件锁就立即返回，否则，函数会等待获得文件锁。
+
+# LOCK_NB可以同LOCK_SH或LOCK_NB进行按位或（|）运算操作。
+fcnt.flock(f.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
+```
+
+jittor/python/jittor/compiler.py
+
+
+
+
 
 
 ```python
