@@ -32,11 +32,121 @@ fcnt.flock(f.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
 
 jittor/python/jittor/compiler.py
 
+```py
+# 找到各种path
+python_path = sys.executable
+py3_config_path = sys.executable+"-config"
+nvcc_path = env_or_try_find('nvcc_path', '/usr/local/cuda/bin/nvcc')
+gdb_path = try_find_exe('gdb')
+addr2line_path = try_find_exe('addr2line')
+has_pybt = check_pybt(gdb_path, python_path)
+
+# 编译标记 选项 flag
+cc_flags += " -Wall -Werror -Wno-unknown-pragmas -std=c++14 -fPIC -march=native "
+link_flags = " -lstdc++ -ldl -shared "
+
+core_link_flags = ""
+opt_flags = ""
+kernel_opt_flags = os.environ.get("kernel_flags", "") + opt_flags + " -fopenmp "
+
+if ' -O' not in cc_flags:
+    opt_flags += " -O2 "
+    kernel_opt_flags += " -Ofast "
+lto_flags = ""
+if os.environ.get("enable_lto") == "1":
+    if cc_type == "icc":
+        lto_flags = " -flto -ipo -ipo-c "
+    elif cc_type == "g++":
+        lto_flags = " -flto -fuse-linker-plugin "
+    else:
+        lto_flags = " -flto "
+
+# pybind_include 路径
+pybind_include = run_cmd(python_path+" -m pybind11 --includes")
+extension_suffix = run_cmd(py3_config_path+" --extension-suffix")
+
+# 创建 编译缓冲区
+
+make_cache_dir(cache_path)
+make_cache_dir(os.path.join(cache_path, "jit"))
+make_cache_dir(os.path.join(cache_path, "obj_files"))
+make_cache_dir(os.path.join(cache_path, "gen"))
+
+# 创建缓存编译器 build cache_compile
+cc_flags += pybind_include
+cc_flags += f" -I{jittor_path}/src "
+check_cache_compile()
+
+# 检查是否支持 check cuda
+has_cuda = 0
+check_cuda()
+
+# 编译 jittor 
+# build core
+gen_jit_flags()
+gen_jit_tests()
+op_headers = run_cmd('find -L src/ops/ | grep "op.h$"', jittor_path).splitlines()
+jit_src = gen_jit_op_maker(op_headers)
+
+#  jittor 核心cc文件实现
+at_beginning = [
+    "src/ops/op_utils.cc",
+    "src/event_queue.cc",
+    "src/mem/allocator/sfrl_allocator.cc",
+    "src/mem/allocator.cc",
+]
+at_last = [
+    "src/profiler/profiler.cc",
+    "src/executor.cc",
+    "src/fetcher.cc",
+]
+compile(cc_path, cc_flags+opt_flags, files, 'jittor_core'+extension_suffix)
+
+
+# TODO: move to compile_extern.py
+compile_extern()  # 
+# 多线程支持 setup_mpi()    # mpicc_path = env_or_try_find('mpicc_path', 'mpicc')
+                 # mpi_src_dir = os.path.join(jittor_path, "extern", "mpi")
+                 #  mpi = compile_custom_ops(mpi_src_files,  extra_flags=f" {mpi_flags} ", return_module=True, dlopen_flags=os.RTLD_GLOBAL | os.RTLD_NOW)
+                 
+# nvidia cuda支持  setup_nccl() 
+    # url = "https://github.com/NVIDIA/nccl/archive/v2.6.4-1.tar.gz"
+    #     nccl_include_path = os.environ.get("nccl_include_path")
+    # nccl_lib_path = os.environ.get("nccl_lib_path")
+    # nccl_path = os.path.join(str(Path.home()), ".cache", "jittor", "nccl")
+    # nccl_ops = compile_custom_ops(nccl_src_files, 
+    #    extra_flags=f" -I'{nccl_include_path}' {mpi_compile_flags} ")
+    
+    
+# setup_cutt()
+    # url = "https://github.com/Jittor/cutt/archive/master.zip"
+    # cutt_include_path = os.environ.get("cutt_include_path")
+    # cutt_lib_path = os.environ.get("cutt_lib_path")
+    # cutt_path = os.path.join(str(Path.home()), ".cache", "jittor", "cutt")
+    # cutt_op_dir = os.path.join(jittor_path, "extern", "cuda", "cutt", "ops")
+    # cutt_op_files = [os.path.join(cutt_op_dir, name) for name in os.listdir(cutt_op_dir)]
+    # cutt_ops = compile_custom_ops(cutt_op_files,  extra_flags=f" -I'{cutt_include_path}'")
+    
+# setup_mkl()
+    # url = "https://github.com/intel/mkl-dnn/releases/download/v1.0.2/mkldnn_lnx_1.0.2_cpu_gomp.tgz"
+    # mkl_include_path = os.environ.get("mkl_include_path")
+    # mkl_lib_path = os.environ.get("mkl_lib_path")
+    # mkl_path = os.path.join(str(Path.home()), ".cache", "jittor", "mkl")
+    # mkl_lib_name = os.path.join(mkl_lib_path, "libmkldnn.so")
+
+    # mkl_op_dir = os.path.join(jittor_path, "extern", "mkl", "ops")
+    # mkl_op_files = [os.path.join(mkl_op_dir, name) for name in os.listdir(mkl_op_dir)]
+    # mkl_ops = compile_custom_ops(mkl_op_files, 
+    #     extra_flags=f" -I'{mkl_include_path}' -L'{mkl_lib_path}' -lmkldnn -Wl,-rpath='{mkl_lib_path}' ")
+    
+# setup_cuda_extern()
+
+
+```
 
 
 
-
-
+# 示例
 ```python
 import jittor as jt
 from jittor import Module
