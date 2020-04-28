@@ -146,6 +146,17 @@ compile_extern()  #
 
 ```
 
+jittor/src/executor.cc 
+
+整个编译流程大概是：
+
+执行到第i个op的时候，会把这个op的输出var所需要的内存先申请好，相关代码：allocator.cc, sfrl_allocator.cc
+
+申请好内存以后，就开始准备计算了，计算前会先调用jit_prepare来生成op的jitkey，这个jitkey就是op的身份证，看一下这个op是不是已经被编译过了，相关代码：jit_key.cc
+
+准备完成以后，检查一个op是否被编译过：Op::jit_run
+
+如果编译过，开始执行，如果没有编译过，开始编译，相关代码：op_compiler.cc
 
 
 # 示例
