@@ -32,6 +32,8 @@ fcnt.flock(f.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
 
 jittor/python/jittor/compiler.py
 
+pyjt_compiler.py 根据头文件编译生成 .c源文件 
+
 ```py
 # 找到各种path
 python_path = sys.executable
