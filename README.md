@@ -150,13 +150,64 @@ jittor/src/executor.cc
 
 整个编译流程大概是：
 
-执行到第i个op的时候，会把这个op的输出var所需要的内存先申请好，相关代码：allocator.cc, sfrl_allocator.cc
+0. 图优化（图遍历、算子融合、并查集）[code](https://github.com/Ewenwan/jittor/blob/04644cd7583f6ef4780685e2c9c4722962f1ea4e/src/executor.cc#L104)
 
-申请好内存以后，就开始准备计算了，计算前会先调用jit_prepare来生成op的jitkey，这个jitkey就是op的身份证，看一下这个op是不是已经被编译过了，相关代码：jit_key.cc
+1. 内存分配，执行到第i个op的时候，会把这个op的输出var所需要的内存先申请好，相关代码：allocator.cc, sfrl_allocator.cc
+[code](https://github.com/Ewenwan/jittor/blob/04644cd7583f6ef4780685e2c9c4722962f1ea4e/src/executor.cc#L337)
 
-准备完成以后，检查一个op是否被编译过：Op::jit_run
+```c
+for (auto* var : op->outputs())
+    var->alloc(allocator);
+```
 
-如果编译过，开始执行，如果没有编译过，开始编译，相关代码：op_compiler.cc
+2. 算子key生成，申请好内存以后，就开始准备计算了，计算前会先调用 op:do_jit_prepare ( jit_prepare() 那个算子重写 算子参数定义) 来生成 op 的 jitkey，这个jitkey就是op的身份证，看一下这个op是不是已经被编译过了，相关代码：jit_key.cc parse_jit_keys()
+[code](https://github.com/Ewenwan/jittor/blob/04644cd7583f6ef4780685e2c9c4722962f1ea4e/src/executor.cc#L339)
+
+```c
+
+op->do_prepare();
+```
+
+3. 算子编译，如果没有编译过，开始编译，相关代码：op_compiler.cc
+[]()
+
+```c
+op->do_run_after_prepare();
+
+    const char* jit_key = jk.to_cstring();
+    auto iter = jit_ops.find(jit_key);
+    if (iter != jit_ops.end()) {
+        LOGvvv <<  "Jit op key found:" << jit_key << "jit op entry:" << (void*)iter->second;
+        Profiler::record_and_run(iter->second, this, jit_key);
+        return;
+    }
+    
+// compile JIT op
+
+    string prev_jit_key = jit_key;
+    auto op_entry = OpCompiler::do_compile(this);
+    string new_jit_key = get_jit_key();
+    jit_ops[new_jit_key] = jit_ops[prev_jit_key] = op_entry;
+    jit_key_mapper[prev_jit_key] = new_jit_key;
+    LOGvv << "Get jit op entry:" << (void*)op_entry;
+    Profiler::record_and_run(op_entry, this, new_jit_key.c_str());
+```
+
+
+4. 算子运行，如果编译过，开始执行，准备完成以后，检查一个op是否被编译过：Op::jit_run
+[code](https://github.com/Ewenwan/jittor/blob/04644cd7583f6ef4780685e2c9c4722962f1ea4e/src/executor.cc#L365)
+
+```c
+
+void Op::do_run_after_prepare() {
+
+    if (!jk.empty())
+        jit_run();
+
+    else
+        run();
+}
+```
 
 
 # 示例
