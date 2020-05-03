@@ -12,6 +12,8 @@ The following example shows how to model a two-layer neural network step by step
 
 入口：
 
+import jittor的时候会运行__init__.py，再调用 compiler.py，然后调用shell把整个框架编译一遍...
+
 jittor/python/jittor/__init__.py  先创建（os.mknod 方法） 编译缓冲区cache_path 然后 上锁（fcntl 模块）
 
 在 linux 环境下用 Python 进行项目开发过程中经常会遇到多个进程对同一个文件进行读写问题，而此时就要对文件进行加锁控制，在 Python 的 linux 版本下有个 fcntl 模块可以方便的对文件进行加、解锁控制。
