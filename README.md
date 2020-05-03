@@ -148,6 +148,9 @@ compile_extern()  #
 
 ```
 
+jittor设计了一些基础算子，应该是打算把所有的常见Op拆分成这些基础算子，然后做一些fusion。
+
+
 jittor/src/executor.cc 
 
 整个编译流程大概是：
