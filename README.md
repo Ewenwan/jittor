@@ -152,6 +152,8 @@ jittor设计了一些基础算子，应该是打算把所有的常见Op拆分成
 
 scripting是通过把Python的源代码解析成语法树，然后转化成C++可执行代码来实现的。
 
+[TorchScript 如何实现Python -> C++ 代码转换](https://zhuanlan.zhihu.com/p/136585481)
+
 jittor/src/executor.cc 
 
 整个编译流程大概是：
