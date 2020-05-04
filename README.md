@@ -150,12 +150,15 @@ compile_extern()  #
 
 jittor设计了一些基础算子，应该是打算把所有的常见Op拆分成这些基础算子，然后做一些fusion。
 
+scripting是通过把Python的源代码解析成语法树，然后转化成C++可执行代码来实现的。
 
 jittor/src/executor.cc 
 
 整个编译流程大概是：
 
-0. 图优化（图遍历、算子融合、并查集）[code](https://github.com/Ewenwan/jittor/blob/04644cd7583f6ef4780685e2c9c4722962f1ea4e/src/executor.cc#L104)
+0.0 python代码转成 节点图??
+
+0.5 图优化（图遍历、算子融合、并查集）[code](https://github.com/Ewenwan/jittor/blob/04644cd7583f6ef4780685e2c9c4722962f1ea4e/src/executor.cc#L104)
 
 1. 内存分配，执行到第i个op的时候，会把这个op的输出var所需要的内存先申请好，相关代码：allocator.cc, sfrl_allocator.cc
 [code](https://github.com/Ewenwan/jittor/blob/04644cd7583f6ef4780685e2c9c4722962f1ea4e/src/executor.cc#L337)
