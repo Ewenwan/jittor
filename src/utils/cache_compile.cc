@@ -120,13 +120,15 @@ void find_names(string cmd, vector<string>& input_names, string& output_name, ma
         << " input_names: " << input_names << "\n" << cmd;
 }
 
+// 去掉注释 双斜杠开头  //   多行注释/* 
 size_t skip_comments(const string& src, size_t i) {
     if (src[i] == '/' && (i+1<src.size() && src[i+1] == '/')) {
         size_t j=i+1;
-        while (j<src.size() && src[j] != '\n') j++;
+        while (j<src.size() && src[j] != '\n') j++; // 双斜杠开头 到 行尾
         if (j<src.size()) j++;
         return j;
     } else
+    // /*  xxxxx  */  多行住宿
     if (src[i] == '/' && (i+1<src.size() && src[i+1] == '*')) {
         size_t j=i+1;
         while (j<src.size() && !(src[j] == '/' && src[j-1] == '*')) j++;
