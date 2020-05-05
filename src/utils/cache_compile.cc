@@ -171,6 +171,7 @@ bool cache_compile(const string& cmd, const string& cache_path, const string& ji
     vector<string> input_names;
     map<string,vector<string>> extra;
     string output_name;
+    // 找到编译命令行中的 输入文件input_names 输出文件名output_name  include包含文件extra
     find_names(cmd, input_names, output_name, extra);
     string output_cache_key;
     bool ran = false;
@@ -228,6 +229,10 @@ bool cache_compile(const string& cmd, const string& cache_path, const string& ji
     if (output_cache_key.size() != 0 && output_cache_key != cache_key) {
         LOGvv << "Cache key of" << output_name << "changed.";
         LOGvvv << "Run cmd:" << cmd;
+        // 执行命令 
+        // log.cc
+        // popen()函数通过创建一个管道，调用fork()产生一个子进程，执行一个shell以运行命令来开启一个进程。
+        system_with_check(cd_cmd.c_str());
         system_with_check(cd_cmd.c_str());
         ran = true;
     }
