@@ -12,6 +12,16 @@ The following example shows how to model a two-layer neural network step by step
 
 入口：
 
+jit_utils 实现：
+
+     jittor\src\utils\jit_utils.cc  PYBIND11_MODULE(jit_utils_core, m){}
+     m.def("cache_compile", &jittor::jit_compiler::cache_compile); // 缓存编译
+     pybind 调用 c++源码 实现
+     jittor\src\utils\log.cc 日志
+     jittor\src\utils\cache_compile.cc 缓存编译
+ 
+ 
+
 import jittor的时候会运行__init__.py，再调用 compiler.py，然后调用shell把整个框架编译一遍...
 
 jittor/python/jittor/__init__.py  先创建（os.mknod 方法） 编译缓冲区cache_path 然后 上锁（fcntl 模块）
