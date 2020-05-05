@@ -17,8 +17,12 @@ jit_utils 实现：
      jittor\src\utils\jit_utils.cc  PYBIND11_MODULE(jit_utils_core, m){}
      m.def("cache_compile", &jittor::jit_compiler::cache_compile); // 缓存编译
      pybind 调用 c++源码 实现
-     jittor\src\utils\log.cc 日志
+     jittor\src\utils\log.cc 日志 等 
      jittor\src\utils\cache_compile.cc 缓存编译
+          找到编译命令行中的 输入文件input_names 输出文件名output_name  include包含文件extra 源文件include的头文件
+          生成 编译 cache_key 
+          调用 log.cc 中 执行编译命令 system_with_check()
+          popen()函数通过创建一个管道，调用fork()产生一个子进程，执行一个shell以运行命令来开启一个进程。
  
  
 
