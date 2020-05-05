@@ -3,6 +3,7 @@
 # This file is subject to the terms and conditions defined in
 # file 'LICENSE.txt', which is part of this source code package.
 # ***************************************************************
+
 from multiprocessing import Pool
 import subprocess as sp
 import os
@@ -14,6 +15,8 @@ import contextlib
 import threading
 import time
 from ctypes import cdll
+
+# Pool 和 ThreadPool 两个模块, 一个基于进程工作, 一个基于线程工作。
 
 class LogWarper:
     def __init__(self):
@@ -88,6 +91,9 @@ def try_import_jit_utils_core(silent=None):
     try:
         # if is in notebook, must log sync, and we redirect the log
         if is_in_ipynb: os.environ["log_sync"] = "1"
+        # jittor\src\utils\jit_utils.cc  PYBIND11_MODULE(jit_utils_core, m) 
+        # pybind 调用 c++源码 实现
+        # jittor\src\utils\log.cc
         import jit_utils_core as cc
         if is_in_ipynb:
             global redirector
@@ -100,7 +106,10 @@ def try_import_jit_utils_core(silent=None):
 
 def run_cmd(cmd, cwd=None, err_msg=None, print_error=True):
     LOG.v(f"Run cmd: {cmd}")
+    # 进入到 wd目录
     if cwd: cmd = f"cd {cwd} && {cmd}"
+    # 运行cmd描述的命令。等待命令完成，然后返回一个CompletedProcess实例。
+    # 如果shell是True，则将通过shell执行指定的命令。
     r = sp.run(cmd, shell=True, stdout=sp.PIPE, stderr=sp.STDOUT)
     s = r.stdout.decode('utf8')
     if r.returncode != 0:
@@ -119,6 +128,7 @@ def do_compile(args):
     cmd, cache_path, jittor_path = args
     try_import_jit_utils_core(True)
     if cc:
+        # m.def("cache_compile", &jittor::jit_compiler::cache_compile);
         return cc.cache_compile(cmd, cache_path, jittor_path)
     else:
         run_cmd(cmd)
@@ -126,6 +136,7 @@ def do_compile(args):
 
 def run_cmds(cmds, cache_path, jittor_path):
     cmds = [ [cmd, cache_path, jittor_path] for cmd in cmds ]
+    # 
     with Pool(8) as p:
         p.map(do_compile, cmds)
 
