@@ -138,8 +138,10 @@ size_t skip_comments(const string& src, size_t i) {
     return i;
 }
 
+// 预处理  找到 include 后的头文件名
 void process(string src, vector<string>& input_names) {
     for (size_t i=0; i<src.size(); i++) {
+        // 去除注释
         i = skip_comments(src, i);
         if (i>=src.size()) break;
         if (src[i] == '#') {
