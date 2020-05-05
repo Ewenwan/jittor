@@ -12,7 +12,7 @@ The following example shows how to model a two-layer neural network step by step
 
 入口：
 
-jit_utils 实现：
+jit_utils 编译、日志相关：
 
      jittor\src\utils\jit_utils.cc  PYBIND11_MODULE(jit_utils_core, m){}
      m.def("cache_compile", &jittor::jit_compiler::cache_compile); // 缓存编译
@@ -30,7 +30,13 @@ import jittor的时候会运行__init__.py，再调用 compiler.py，然后调�
 
 jittor/python/jittor/__init__.py  先创建（os.mknod 方法） 编译缓冲区cache_path 然后 上锁（fcntl 模块）
 
+jittor-master/python/jittor/lock.py
+
 在 linux 环境下用 Python 进行项目开发过程中经常会遇到多个进程对同一个文件进行读写问题，而此时就要对文件进行加锁控制，在 Python 的 linux 版本下有个 fcntl 模块可以方便的对文件进行加、解锁控制。
+
+lock_path = os.path.abspath(os.path.join(cache_path, "../jittor.lock"))
+
+os.mknod(lock_path)
 
 os.mknod() 方法用于创建一个指定文件名的文件系统节点（文件，设备特别文件或者命名pipe）。
 
@@ -173,6 +179,17 @@ jittor/src/executor.cc
 整个编译流程大概是：
 
 0.0 python代码转成 节点图??
+   
+   
+     jittor/src/var_holder.cc   
+       void sync_all(bool device_sync)/ sync(const vector<VarHolder*>& vh, bool device_sync) 
+       调用 extern Executor exe;   exe.run_sync();
+       
+       jittor\python\jittor\__init__.py   jittor_exit() 调用 core.sync_all(True)
+       jittor\src\var_holder.cc           fetch_sync()  调用 sync(True)
+       jittor\src\fetcher.cc              fetch()       调用 sync(True)
+       
+       jittor\src\pybind\core.cc   
 
 0.5 图优化（图遍历、算子融合、并查集）[code](https://github.com/Ewenwan/jittor/blob/04644cd7583f6ef4780685e2c9c4722962f1ea4e/src/executor.cc#L104)
 
