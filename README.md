@@ -199,25 +199,34 @@ int main(){
 
 //1.每个定义的函数都需要一个样板函数
 static PyObject* 模块名_函数名(PyObject self,PyObject args){
-//用 PyArg_ParseTuple函数解读参数
+// static PyObject * Extest_fac(PyObject *self,PyObject *args){
+// 1.1 用 PyArg_ParseTuple 函数 解读 参数    python类型参数转出c参数
 char * command;
-PyObject retval;//定义返回变量
-//PyArg_ParseTuple(args,“s”,&command);
+// int num：
+// PyArg_ParseTuple(args,"i",&num)
+//PyArg_ParseTuple(args,“s”,&command);  // "s" 表示字符串变量  "i"表示int整形变量
 //这句话意思为将args解读成char类型存入command位置中
+// 1.2 调用c函数
 int res;
 res = fac(command);//假设函数名叫fac
-//用Py_BuildValue来将c变量转换成python变量返回
+
+//1.3 用Py_BuildValue来将 结果c变量转换 成 python变量 返回
 //Py_BuildValue() returns a tuple
+PyObject retval;//定义返回变量
 //retval = (PyObject)Py_BuildValue(类型,C变量1,C变量2）
+// return (PyObject*)Py_BuildValue("i",res);
+
 return retval;
 }
+
 //2.方法定义-就是该module包含了哪些Methods
 static PyMethodDef ExtestMethods[] = { //Extest 为模块名
 {“fac”,Extest_fac,METH_VARARGS},
-/* python中使用的名称，对应样板函数名称,METH_VARARGS的意思是期待PYTHON-LEVEL的 参数*/
+/* python中使用的名称，对应样板函数名称,METH_VARARGS 的意思是期待PYTHON-LEVEL的 参数*/
 {“doppel”,Extest_doppel,METH_VARARGS},
 {NULL,NULL} //表示函数信息结束
 };
+
 //3.模块定义
 static struct PyModuleDef extestmodule = {
 PyModuleDef_HEAD_INIT,
@@ -226,13 +235,15 @@ NULL, //doc
 -1, //不懂
 ExtestMethods //方法定义
 };
+
 //4.启动样板函数
 PyMODINIT_FUNC
-PyInit_Extest(void){ //Extest为模块名称
+PyInit_Extest(void){ // Extest为模块名称
 PyObject *m;
 m = PyModule_Create(&extestmodule); //为模块定义
 if(m==NULL)
 return NULL;
+
 /可以接触发异常等等/
 return m;
 }
