@@ -263,15 +263,151 @@ python setup.py build
 
 python setup.py install
 
-
 jittor 算子 编译注册 python 模块
-
-jittor\src\ops\op_register.cc  op_registe()   op_info 注册op unordered_map<string, OpInfo> op_info_map;   包含名字  和 函数指针构造器 
- 
 
 src\pyjt\py_obj_holder.h   包含 #include <Python.h>  按照python接口编写函数 可import到python环境中
 
+```c
+#define PYJF_MODULE_INIT(name) \                   // 初始化模块 name
+PyMODINIT_FUNC PyInit_##name() { \
+    PyObject *m; \                   // PyObject* 可以表示任意Python对象的封装数据类型
+    try { \
+        PyModuleDef *def = new PyModuleDef(); \    // 模块定义
+        memset(def, 0, sizeof(PyModuleDef)); \
+        def->m_name = #name; \                     // 模块名
+        def->m_doc = ""; \                         // 模块说明
+        def->m_size = -1; \
+        Py_INCREF(def); \                          // increase  ref   增加引用计数
+                                                   // 当你需要保护这个变量不被释放时才使用INCREF
+        jittor::PyObjHolder holder(m = PyModule_Create(def)); \
+                                                   // PyObjHolder 保存 PyObject 对象
+                                                   // 析构对象 调用 Py_DECREF 减少引用计数
+        init_module(def, m); \                     // 初始化模块定义 的 doc 
+        holder.release(); \
+    } catch(const std::exception& e) { \
+        PyErr_SetString(PyExc_RuntimeError, e.what()); \
+        return nullptr; \
+    } \
+    return m; \
+}
 
+static void init_module(PyModuleDef* mdef, PyObject* m) {
+    mdef->m_doc = "Inner c++ core of jittor"; // 初始化模块定义 的 doc 
+    jittor::init();       // 调用  op_registe
+    //  op_registe({"number", "", "", {{&typeid(&make_number), (void*)&make_number}}});
+    jittor::pyjt_def_all(m);
+}
+
+```
+
+jittor\src\ops\op_register.cc  op_registe()   op_info 注册op unordered_map<string, OpInfo> op_info_map;   包含名字  和 函数指针构造器 
+ 
+```c
+struct OpInfo {
+    string name, source_path, extra_flags;   // op算子名称 源码路径
+    vector<pair<const std::type_info*, void*>> constructors;
+        // 构造函数容器 类型:函数指针对 数组
+    // string: var member name, uint64: var member offset
+    vector<pair<string, uint64>> var_members;   // 变量数组
+
+    template<class To, class ...Ts> auto get_constructor() {
+        typedef To (*func_t)(Ts...);
+        const auto& tid = typeid(func_t);  // 函数类型
+        for (uint i=0; i<constructors.size(); i++)
+            if (std::type_index(*(constructors[i].first)) == std::type_index(tid))
+                return func_t(constructors[i].second);
+        LOGf << "constructor" << name << tid.name() << "not found.";
+        return func_t(nullptr);
+    }
+};
+
+unordered_map<string, OpInfo> op_info_map;
+
+void op_registe(const OpInfo& op_info) {
+    ASSERT(!has_op(op_info.name)) << "Op" << op_info.name << "is already registed, "
+        << "source_path:" << op_info.source_path << "extra_flags" << op_info.extra_flags;
+    LOGvv << "registe op" << op_info.name
+        << "\nsource_path:" << op_info.source_path
+        << "\nextra_flags:" << op_info.extra_flags
+        << "\nconstructors:" << op_info.constructors
+        << "\nvar_members:" << op_info.var_members;
+    op_info_map[op_info.name] = op_info;    // 添加该op算子 到 算子信息库中
+}
+
+
+```
+
+jittor\src\op.cc   算子操作
+
+```c
+
+// op算子名转换
+
+// convert xxx.yyy -> xxx
+string Op::op_name_to_file_name(const string& s) {
+    auto pos = s.find('.');
+    return pos == string::npos ? s : s.substr(0, pos);
+}
+
+// convert xxx_xxx -> XxxXxx
+string Op::file_name_to_class_name(const string& s) {
+    char prev = '_';
+    string res;
+    res.reserve(s.size());
+    for (char c : s) {
+        if (c != '_') {
+            if (prev == '_')
+                res += c-'a'+'A';
+            else
+                res += c;
+        }
+        prev = c;
+    }
+    return res;
+}
+
+// 算子 运行
+void Op::jit_run() {
+    const char* jit_key = jk.to_cstring();
+    auto iter = jit_ops.find(jit_key);
+    if (iter != jit_ops.end()) {
+        LOGvvv <<  "Jit op key found:" << jit_key << "jit op entry:" << (void*)iter->second;
+        
+        Profiler::record_and_run(iter->second, this, jit_key);
+        // 算子仓库中有 该算子  直接运行 并记录 耗时
+        return;
+    }
+    LOGvv << "Jit op key not found:" << jit_key;
+    // compile JIT op
+    string prev_jit_key = jit_key;
+    auto op_entry = OpCompiler::do_compile(this);  // 如果没有则即时编译 
+    string new_jit_key = get_jit_key();
+    jit_ops[new_jit_key] = jit_ops[prev_jit_key] = op_entry; // 记录到算子库
+    jit_key_mapper[prev_jit_key] = new_jit_key;
+    LOGvv << "Get jit op entry:" << (void*)op_entry;
+    
+    Profiler::record_and_run(op_entry, this, new_jit_key.c_str()); // 运行 并记录 耗时
+}
+
+
+// 耗时记录 profile
+
+for (int64_t i=0; i<rerun; i++) {
+  auto start = std::chrono::high_resolution_clock::now();
+  jit_entry(op);
+  #ifdef HAS_CUDA
+  if (use_cuda)
+      checkCudaErrors(cudaDeviceSynchronize());
+  #endif
+  auto finish = std::chrono::high_resolution_clock::now();
+  auto total_ns =  (int64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(finish-start).count();
+  // 24ns function call overhead
+  total_ns = std::max((int64_t)1, total_ns-24);
+  iter->second.update(loop, total_ns, in, out, compute);
+  LOGvvvv << "Duration" << total_ns >> "ns running" << op;
+}
+
+```
 
 
 
