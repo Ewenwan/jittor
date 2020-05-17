@@ -167,19 +167,30 @@ compile_extern()  #
 
 
 ```
-
 jittor设计了一些基础算子，应该是打算把所有的常见Op拆分成这些基础算子，然后做一些fusion。
 
 scripting是通过把Python的源代码解析成语法树，然后转化成C++可执行代码来实现的。
 
 [TorchScript 如何实现Python -> C++ 代码转换](https://zhuanlan.zhihu.com/p/136585481)
 
+[用C给python写module的步骤(入门)](https://blog.csdn.net/xiaozoom/article/details/83097136)
+
+jittor 算子 编译注册 python 模块
+
+jittor\src\ops\op_register.cc  op_registe()   op_info 注册op unordered_map<string, OpInfo> op_info_map;   包含名字  和 函数指针构造器 
+ 
+
+src\pyjt\py_obj_holder.h   包含 #include <Python.h>  按照python接口编写函数 可import到python环境中
+
+
+
+
+
 jittor/src/executor.cc 
 
 整个编译流程大概是：
 
 0.0 python代码转成 节点图??
-   
    
      jittor/src/var_holder.cc   
        void sync_all(bool device_sync)/ sync(const vector<VarHolder*>& vh, bool device_sync) 
