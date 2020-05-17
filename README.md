@@ -175,6 +175,84 @@ scripting是通过把Python的源代码解析成语法树，然后转化成C++�
 
 [用C给python写module的步骤(入门)](https://blog.csdn.net/xiaozoom/article/details/83097136)
 
+就是用C语言编写核心代码，然后封装成PYTHON可以使用的形式，是比较常用的手段之一
+
+需要文件如下：
+
+file1 - 包含C代码，以及封装样板代码的C文件
+
+必须 #include “Python.h”
+, //位置-如果装了anaconda则在 anaconda3/include里
+, //默认在/usr/local/include/python3.x/中
+```c
+用C定义好函数–比如一个阶乘函数,如果看懂这个函数都有难度的话…
+int fac(int n){
+if (n<2)
+return 1;
+else
+return (n)*fac(n-1);
+}
+int main(){
+…//中间部分为测试C函数的代码
+}
+然后是样板函数，样板代码有几个·组成部分：
+
+//1.每个定义的函数都需要一个样板函数
+static PyObject* 模块名_函数名(PyObject self,PyObject args){
+//用 PyArg_ParseTuple函数解读参数
+char * command;
+PyObject retval;//定义返回变量
+//PyArg_ParseTuple(args,“s”,&command);
+//这句话意思为将args解读成char类型存入command位置中
+int res;
+res = fac(command);//假设函数名叫fac
+//用Py_BuildValue来将c变量转换成python变量返回
+//Py_BuildValue() returns a tuple
+//retval = (PyObject)Py_BuildValue(类型,C变量1,C变量2）
+return retval;
+}
+//2.方法定义-就是该module包含了哪些Methods
+static PyMethodDef ExtestMethods[] = { //Extest 为模块名
+{“fac”,Extest_fac,METH_VARARGS},
+/* python中使用的名称，对应样板函数名称,METH_VARARGS的意思是期待PYTHON-LEVEL的 参数*/
+{“doppel”,Extest_doppel,METH_VARARGS},
+{NULL,NULL} //表示函数信息结束
+};
+//3.模块定义
+static struct PyModuleDef extestmodule = {
+PyModuleDef_HEAD_INIT,
+“Extest”, //名称
+NULL, //doc
+-1, //不懂
+ExtestMethods //方法定义
+};
+//4.启动样板函数
+PyMODINIT_FUNC
+PyInit_Extest(void){ //Extest为模块名称
+PyObject *m;
+m = PyModule_Create(&extestmodule); //为模块定义
+if(m==NULL)
+return NULL;
+/可以接触发异常等等/
+return m;
+}
+
+
+```
+file2 - setup.py文件，用于编译以及安装
+```py
+from distutils.core import setup,Extension
+
+MOD = ‘Extest’ //名称
+setup(name=MOD,ext_modules=[Extension(MOD,sources=[‘Extest1.c’])])//源代码·位置
+```
+#命令
+
+python setup.py build
+
+python setup.py install
+
+
 jittor 算子 编译注册 python 模块
 
 jittor\src\ops\op_register.cc  op_registe()   op_info 注册op unordered_map<string, OpInfo> op_info_map;   包含名字  和 函数指针构造器 
