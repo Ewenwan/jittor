@@ -88,7 +88,7 @@ if os.environ.get("enable_lto") == "1":
 # pybind_include 路径
 pybind_include = run_cmd(python_path+" -m pybind11 --includes")
 extension_suffix = run_cmd(py3_config_path+" --extension-suffix")
-
+ 
 # 创建 编译缓冲区
 
 make_cache_dir(cache_path)
@@ -96,14 +96,19 @@ make_cache_dir(os.path.join(cache_path, "jit"))
 make_cache_dir(os.path.join(cache_path, "obj_files"))
 make_cache_dir(os.path.join(cache_path, "gen"))
 
-# 创建缓存编译器 build cache_compile
+# 1. 编译jit_utils_core 并注册为python模块  创建缓存编译器 build cache_compile
 cc_flags += pybind_include
 cc_flags += f" -I{jittor_path}/src "
-check_cache_compile()
+check_cache_compile()  //  编译jit_utils_core 并注册为python模块
+
+···
+
 
 # 检查是否支持 check cuda
 has_cuda = 0
 check_cuda()
+
+
 
 # 编译 jittor 
 # build core
