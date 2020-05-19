@@ -101,7 +101,16 @@ cc_flags += pybind_include
 cc_flags += f" -I{jittor_path}/src "
 check_cache_compile()  //  编译jit_utils_core 并注册为python模块
 
-···
+'''
+    files = [
+        "src/utils/cache_compile.cc",
+        "src/utils/log.cc",
+        "src/utils/tracer.cc",
+        "src/utils/jit_utils.cc", //  PYBIND11_MODULE(jit_utils_core, m)  注册为 python 模块
+     ]
+    compile(cc_path, cc_flags+f" {opt_flags} ", files, 'jit_utils_core'+extension_suffix, True)
+    '''
+
 
 
 # 检查是否支持 check cuda
@@ -110,14 +119,16 @@ check_cuda()
 
 
 
-# 编译 jittor 
-# build core
+# 2. 编译 jittor  core
 gen_jit_flags()
 gen_jit_tests()
 op_headers = run_cmd('find -L src/ops/ | grep "op.h$"', jittor_path).splitlines()
-jit_src = gen_jit_op_maker(op_headers)
+
+jit_src = gen_jit_op_maker(op_headers)  // 生成 部分源文件
 
 #  jittor 核心cc文件实现
+files4 = run_cmd('find -L src | grep "cc$"', jittor_path).splitlines()  
+# src 下包含 core.cc  含有 jittor_core python模块的注册  PYJF_MODULE_INIT(jittor_core);
 at_beginning = [
     "src/ops/op_utils.cc",
     "src/event_queue.cc",
@@ -129,6 +140,8 @@ at_last = [
     "src/executor.cc",
     "src/fetcher.cc",
 ]
+
+# 编译 jittor_core 模块  使用 
 compile(cc_path, cc_flags+opt_flags, files, 'jittor_core'+extension_suffix)
 
 
