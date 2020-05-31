@@ -62,6 +62,10 @@ struct OpCompiler {}
 // @pyjt(fetch_sync,numpy)
 ArrayArgs fetch_sync();
 
+// @pyjt(__len__, __map_len__)
+inline int size() const {
+  return offset & ((1<<size_nbits)-1);
+}
 
 
 "args": args, # [(type,name,defaut), ...]
@@ -116,16 +120,54 @@ esplit = lambda x: [] if x==None else \
 pynames = esplit(pyjt)
   ```
   
+  
+  
+  
 2.  python\jittor\compiler.py
 
 
-  
+
+2.1  生成测试代码
+```py
+gen_jit_tests()
+
+re_def = re.compile("JIT_TEST\\((.*?)\\)")  // 以 JIT_TEST() 标记搜索
+```
+2.2 生成  标记 代码 FLAG
+
+```py 
+gen_jit_flags()
+
+re_def = re.compile("DEFINE_FLAG(_WITH_SETTER)?\\((.*?)\\);", re.DOTALL)  // 以 DEFINE_FLAG() 标记搜索
+```
+
+2.3 生成 算子代码 生成器 gen_jit_op_maker
+
 ```py 
 pybind_reg = '(/\\*(.*?)\\*/\\s*)?(//\\s*@pybind\\(([^\\n]*)\\)\\s*)?'
 pybind_attrs_reg = pybind_reg + '(//\\s*@attrs\\(([^\\n]*)\\)\\s*)?'
+
+// 搜索源码标记 生成代码 
+// 加入 python模块注册    PYJF_MODULE_INIT({export});
 ```
 
 
+2.4 编译jit_utils_core 并注册为python模块  创建缓存编译器 build cache_compile
+```py
+cc_flags += pybind_include
+cc_flags += f" -I{jittor_path}/src "
+check_cache_compile()  //  编译jit_utils_core 并注册为python模块
+
+'''
+    files = [
+        "src/utils/cache_compile.cc",
+        "src/utils/log.cc",
+        "src/utils/tracer.cc",
+        "src/utils/jit_utils.cc", //  PYBIND11_MODULE(jit_utils_core, m)  注册为 python 模块
+     ]
+    compile(cc_path, cc_flags+f" {opt_flags} ", files, 'jit_utils_core'+extension_suffix, True)
+    '''
+```
 
 jit_utils 编译、日志相关：
 
@@ -138,6 +180,42 @@ jit_utils 编译、日志相关：
           生成 编译 cache_key 
           调用 log.cc 中 执行编译命令 system_with_check()
           popen()函数通过创建一个管道，调用fork()产生一个子进程，执行一个shell以运行命令来开启一个进程。
+ 
+2.5 编译jit_core 并注册为python模块  
+ 
+gen_jit_flags()
+gen_jit_tests()
+op_headers = run_cmd('find -L src/ops/ | grep "op.h$"', jittor_path).splitlines()
+
+jit_src = gen_jit_op_maker(op_headers)  // 生成 部分 源文件 算子python接口c代码 
+
+// 含有 PYJF_MODULE_INIT({export}); // 注册python 模块
+
+> jittor 核心cc文件实现
+
+files4 = run_cmd('find -L src | grep "cc$"', jittor_path).splitlines()  
+
+>  src 下包含 core.cc  含有 jittor_core python模块的注册  PYJF_MODULE_INIT(jittor_core);
+
+```py
+at_beginning = [
+    "src/ops/op_utils.cc",
+    "src/event_queue.cc",
+    "src/mem/allocator/sfrl_allocator.cc",
+    "src/mem/allocator.cc",
+]
+
+at_last = [
+    "src/profiler/profiler.cc",
+    "src/executor.cc",
+    "src/fetcher.cc",
+]
+```
+
+> 编译 jittor_core 模块  使用 
+
+compile(cc_path, cc_flags+opt_flags, files, 'jittor_core'+extension_suffix)
+ 
  
 jittor/python/jittor/__init__.py  先创建（os.mknod 方法） 编译缓冲区cache_path 然后 上锁（fcntl 模块）
 
@@ -538,9 +616,42 @@ for (int64_t i=0; i<rerun; i++) {
 
 ```
 
+调用：
+
+ exe.run_sync    
+ 
+           src\ops\reduce_op.cc  ReduceOp::grad()              调用了 exe.run_sync 
+           src\ops\argsort_op.cc ArgsortOp::ArgsortOp()        #ifdef HAS_CUDA 下调用了 
+           src\ops\arg_reduce_op.cc ArgReduceOp::ArgReduceOp() #ifdef HAS_CUDA 下调用了 
+           
+           最关键的 src\var_holder.cc 调用入口
+```c
+void sync_all(bool device_sync) {
+    vector<Var*> vars;
+    vars.reserve(VarHolder::hold_vars.size());
+    for (auto v : VarHolder::hold_vars) {
+        if (!v->var->_outputs.size())
+            vars.push_back(v->var);
+    }
+    graph_check();
+    exe.run_sync(vars, device_sync); //need sync at last
+    graph_check();
+}
+
+void sync(const vector<VarHolder*>& vh, bool device_sync) {
+    vector<Var*> vars;
+    vars.reserve(vh.size());
+    for (auto v : vh) vars.push_back(v->var);
+    graph_check();
+    exe.run_sync(vars, device_sync); //need sync at last
+    graph_check();
+}
+
+```
+
+jittor/src/executor.cc    run_sync()
 
 
-jittor/src/executor.cc 
 
 整个编译流程大概是：
 
