@@ -616,7 +616,7 @@ for (int64_t i=0; i<rerun; i++) {
 
 ```
 
-调用：
+图调用入口：
 
  exe.run_sync    
  
@@ -647,9 +647,57 @@ void sync(const vector<VarHolder*>& vh, bool device_sync) {
     graph_check();
 }
 
+// 准备数据
+vector<ArrayArgs> fetch_sync(const vector<VarHolder*>& vh) {
+    vector<ArrayArgs> ret(vh.size());
+    sync(vh, true); // 运行 同步
+    for (uint i=0; i<vh.size(); i++) {
+        #ifdef HAS_CUDA
+        migrate_to_cpu(vh[i]->var, exe.allocator);
+        #endif
+        ret[i].ptr = vh[i]->var->mem_ptr;
+        ret[i].shape = vh[i]->var->shape;
+        ret[i].dtype = vh[i]->var->dtype();
+    }
+    return ret;
+}
+// 注册到 python中的接口
+
+// @pyjt(sync)
+void sync(const vector<VarHolder*>& vh=vector<VarHolder*>(), bool device_sync=false);
+
+// @pyjt(fetch_sync)
+vector<ArrayArgs> fetch_sync(const vector<VarHolder*>& vh);  // 
+
+// @pyjt(sync_all)
+void sync_all(bool device_sync=false);
+
 ```
 
+src\fetcher.cc  的 fetch() 调用了 sync(vh);
+
+python\jittor\nn.py  jt.sync(self.no_grad_parameters)  神经网络图 python代码 调用
+                     
+                     class Adam(object):
+                         def step(self, loss):
+                             jt.sync(self.no_grad_parameters)            
+                       
 jittor/src/executor.cc    run_sync()
+
+
+
+调用入口:
+
+     a = my_op([3,4,5], 'float').fetch_sync()  算子 通过fetch_sync() 运行图
+     
+     optim = nn.SGD (model.parameters(), learning_rate) 
+     optim.step (loss_mean)                                优化图 运行
+     
+     jy = conv(jx, jw).fetch_sync()            单个算子运行
+     
+     
+     
+
 
 
 
