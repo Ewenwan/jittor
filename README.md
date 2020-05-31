@@ -12,6 +12,121 @@ The following example shows how to model a two-layer neural network step by step
 
 入口：
 
+
+import jittor的时候会运行python\jittor\__init__.py，再调用 python\jittor\compiler.py，然后调用shell把整个框架编译一遍...
+
+1. python\jittor\pyjt_compiler.py   jit 编译器
+   
+  compile(cache_path, jittor_path) --> compile_single --> compile_src
+  
+  根据 src源码目录下的 头文件 生成 对应 python接口的 .c文件（编译后可供 python接口调用）
+  
+  依据 .h 文件中的标记  使用正则表达式匹配，并翻译成 PyObject 格式的代码
+  
+  ```C
+// @pyjt(assign)                 // python 接口标记 函数/变量标记  函数名为 assign
+// @attrs(return_self)           // 属性标记  返回自身
+VarHolder* assign(VarHolder* v);
+
+// @attrs(multiple_outputs)      // 多输出 属性标记
+CubArgReduceOp(Var* x, Var* offsets, string op, bool keepdims);
+
+
+// @pyjt(tests)
+// @attrs(submodule)             // 子模块 属性标记
+namespace tests {{
+   {"".join(test_defs)}
+}}
+
+// @attrs(heaptype)
+struct VarHolder {}
+
+// @pyjt(set_algorithm_cache_size)
+void set_algorithm_cache_size(int size);
+
+// @pyjt(world_size)
+int _mpi_world_size();
+
+// @pyjt(number_of_hold_vars)
+inline static uint64 get_number_of_hold_vars() {
+    return VarHolder::hold_vars.size();
+}
+
+// @pyjt(fetch)
+void fetch(const vector<VarHolder*>& vh, FetchFunc&& func);
+
+// @pyjt(op_compiler)
+// @attrs(submodule)
+struct OpCompiler {}
+
+// @pyjt(fetch_sync,numpy)
+ArrayArgs fetch_sync();
+
+
+
+"args": args, # [(type,name,defaut), ...]
+"return_t": return_t, # return type
+"dec": dec, # full string of xxx(A a, B b)
+"pynames": pynames, # names in @pyjt(...)
+"attrs": attrs, # attrs in @attrs(...)
+    
+  ```
+  
+  > 正则表达式 
+  ```py
+  reg = re.compile(
+    '(/\\*(.*?)\\*/\\s*)?(//\\s*@pyjt\\(([^\\n]*)\\)\\s*)'
+    # ^^^^^^^^^^^^^^^^^          ^^^^    ^^^^
+    # doc string $1              pyjt    args $3
+    +
+    '(//\\s*@attrs\\(([^\\n]*)\\)\\s*)?'
+    #        ^^^^^   ^^^^^^^
+    #        attrs    args $5
+, re.DOTALL)
+  
+  ```
+  
+ 
+  > 属性 解析的函数
+  ```py
+  def parse_attrs(s):
+    '''parse @attrs(..., x=y) syntax'''
+    attrs = {}
+    if s is None: return attrs
+    for a in s.split(','):
+        a = a.strip()
+        if len(a)==0: continue
+        if '=' in a:
+            k, v = a.split('=')
+            attrs[k] = v
+        else:
+            attrs[a] = 1
+    return attrs
+    
+attrs = parse_attrs(attrs)
+
+  ```
+  
+ > python 接口名的 解析函数
+  
+```py
+esplit = lambda x: [] if x==None else \
+  [ a.strip() for a in x.split(",") if len(a.strip()) ]
+  
+pynames = esplit(pyjt)
+  ```
+  
+2.  python\jittor\compiler.py
+
+
+  
+```py 
+pybind_reg = '(/\\*(.*?)\\*/\\s*)?(//\\s*@pybind\\(([^\\n]*)\\)\\s*)?'
+pybind_attrs_reg = pybind_reg + '(//\\s*@attrs\\(([^\\n]*)\\)\\s*)?'
+```
+
+
+
 jit_utils 编译、日志相关：
 
      jittor\src\utils\jit_utils.cc  PYBIND11_MODULE(jit_utils_core, m){}
@@ -24,10 +139,6 @@ jit_utils 编译、日志相关：
           调用 log.cc 中 执行编译命令 system_with_check()
           popen()函数通过创建一个管道，调用fork()产生一个子进程，执行一个shell以运行命令来开启一个进程。
  
- 
-
-import jittor的时候会运行__init__.py，再调用 compiler.py，然后调用shell把整个框架编译一遍...
-
 jittor/python/jittor/__init__.py  先创建（os.mknod 方法） 编译缓冲区cache_path 然后 上锁（fcntl 模块）
 
 jittor-master/python/jittor/lock.py
