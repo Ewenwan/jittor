@@ -717,6 +717,17 @@ jittor/src/executor.cc    run_sync()
 
 0.5 图优化（图遍历、算子融合、并查集）[code](https://github.com/Ewenwan/jittor/blob/04644cd7583f6ef4780685e2c9c4722962f1ea4e/src/executor.cc#L104)
 
+有向无环图DAG 拓扑排序 
+
+它是一个 DAG 图，那么如何写出它的拓扑排序呢？这里说一种比较常用的方法：
+
+
+      a. 从 DAG 图中选择一个 没有前驱（即入度为0）的顶点并输出。
+      b. 从图中删除该顶点和所有以它为起点的有向边。
+      c. 重复 1 和 2 直到当前的 DAG 图为空或当前图中不存在无前驱的顶点为止。后一种情况说明有向图中必然存在环。
+
+[toplogical_sort ](https://github.com/Ewenwan/jittor/blob/7a4d6c4b24cb54c937e2e45d8441d23ada6bc520/src/executor.cc#L124)
+
 1. 内存分配，执行到第i个op的时候，会把这个op的输出var所需要的内存先申请好，相关代码：allocator.cc, sfrl_allocator.cc
 [code](https://github.com/Ewenwan/jittor/blob/04644cd7583f6ef4780685e2c9c4722962f1ea4e/src/executor.cc#L337)
 
