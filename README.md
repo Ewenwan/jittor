@@ -728,6 +728,9 @@ jittor/src/executor.cc    run_sync()
 
 [toplogical_sort ](https://github.com/Ewenwan/jittor/blob/7a4d6c4b24cb54c937e2e45d8441d23ada6bc520/src/executor.cc#L124)
 
+拓扑排序通常用来“排序”具有依赖关系的任务。
+
+
 1. 内存分配，执行到第i个op的时候，会把这个op的输出var所需要的内存先申请好，相关代码：allocator.cc, sfrl_allocator.cc
 [code](https://github.com/Ewenwan/jittor/blob/04644cd7583f6ef4780685e2c9c4722962f1ea4e/src/executor.cc#L337)
 
@@ -761,7 +764,7 @@ op->do_run_after_prepare();
 // compile JIT op
 
     string prev_jit_key = jit_key;
-    auto op_entry = OpCompiler::do_compile(this);
+    auto op_entry = OpCompiler::do_compile(this);  // 优化pass 编译更新代码
     string new_jit_key = get_jit_key();
     jit_ops[new_jit_key] = jit_ops[prev_jit_key] = op_entry;
     jit_key_mapper[prev_jit_key] = new_jit_key;
